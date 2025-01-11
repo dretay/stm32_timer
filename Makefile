@@ -23,6 +23,7 @@ TEST_OUTPUT = $(BUILD_DIR)test/
 CONFIG_DIR = conf/
 SRC_DIRS = src/
 LIB_DIRS = lib/
+TEST_LIB_DIRS = test_lib/
 TEST_DIRS = test/
 TEST_RUNNERS = $(TEST_DIRS)test_runners/
 INCLUDE_DEST = $(RELEASE_DIR)include/
@@ -34,17 +35,21 @@ RUNNERS = $(patsubst $(TEST_DIRS)%.c,$(TEST_RUNNERS)%.c,$(SRCT) )
 TEST_RESULTS = $(patsubst $(TEST_DIRS)Test%.c,$(TEST_RESULTS_DIR)Test%.txt,$(SRCT) )
 PROFILING_RESULTS = $(patsubst $(TEST_DIRS)Test%.c,$(PROFILING_RESULTS_DIR)Test%.out,$(SRCT) )
 TEST_OBJS = $(SRCT:%=$(BUILD_DIR)%.o)
-UNITY_ROOT=/home/drew/src/Unity
+UNITY_ROOT=./lib/Unity-2.5.2
 
 #valgrind stuff
 VALGRIND = /usr/bin/valgrind
 VALGRIND_SUPPS = $(CONFIG_DIR)valgrind.memcheck.supp
 
 #project source files
-SRCS := $(shell find $(LIB_DIRS) $(SRC_DIRS) -maxdepth 2 \( -iname "*.c" ! -iname "*.pb.c" \))
-HEADERS = $(shell find $(LIB_DIRS) $(SRC_DIRS) -maxdepth 2 \( -iname "*.h" \))
-OBJS = $(SRCS:%=$(BUILD_DIR)%.o) $(PB_OBJS)
+SRCS := $(shell find $(TEST_LIB_DIRS) $(LIB_DIRS) $(SRC_DIRS) -maxdepth 2 \( -iname "*.c" ! -iname "*.pb.c" \))
+HEADERS = $(shell find $(TEST_LIB_DIRS) $(LIB_DIRS) $(SRC_DIRS) -maxdepth 2 \( -iname "*.h" \))
+OBJS = $(SRCS:%=$(BUILD_DIR)%.o)
 INC_DIRS := $(shell find $(LIB_DIRS) -maxdepth 1 -type d)
+TEST_INC_DIRS := $(shell find $(TEST_LIB_DIRS) -maxdepth 1 -type d)
+
+TEST_LIB_SRCS = $(addprefix $(SRC_DEST),$(shell find $(TEST_LIB_DIRS) -maxdepth 2 -type f \( -iname "*.c" \) |cut -d\/ -f3))
+TEST_LIB_HEADERS = $(addprefix $(INCLUDE_DEST),$(shell find $(TEST_LIB_DIRS) -maxdepth 2 -type f \( -iname "*.h" \)|cut -d\/ -f3))
 
 #cppcheck
 CPPCHECK = cppcheck
@@ -55,7 +60,7 @@ CPPCHECK_RESULTS = $(CPPCHECK_FILES:%=$(CPPCHECK_RESULTS_DIR)%.txt)
 #misc variables
 DIRECTIVES = -DPB_FIELD_16BIT -DLOG_USE_COLOR -DUNITY_OUTPUT_COLOR -DTEST
 FLAGS = -fPIC
-INC_FLAGS := $(addprefix -I,$(INC_DIRS)) -I$(UNITY_ROOT)/src -I./src
+INC_FLAGS := $(addprefix -I,$(TEST_INC_DIRS)) $(addprefix -I,$(INC_DIRS)) -I$(UNITY_ROOT)/src -I./src
 CURRENT_DIR = $(notdir $(shell pwd))
 CP = cp
 CFLAGS = $(INC_FLAGS) $(FLAGS) $(DIRECTIVES) --std=gnu99
@@ -73,15 +78,12 @@ endif
 
 .PHONY: all
 .PHONY: release
-.PHONY: sharedobject
 .PHONY: test
 .PHONY: profile
-.PHONY: jupyter
-.PHONY: pythondeps
 .PHONY: clean
 .PHONY: cppcheck
 .PHONY: includes
-.PHONY: swig
+.PHONY: dockerbuild
 
 all: $(RUNNERS) $(OBJS) cppcheck
 
@@ -90,9 +92,10 @@ includes: $(PBMODELS)
 	cp $(HEADERS) $(INCLUDE_DEST)
 	$(MKDIR) $(SRC_DEST)
 	cp $(SRCS) $(PBMODELS) $(SRC_DEST)
+	rm $(TEST_LIB_SRCS)
+	rm $(TEST_LIB_HEADERS) 
 
-release: all includes $(RELEASE_DIR)lib$(CURRENT_DIR).a
-sharedobject: all includes $(RELEASE_DIR)lib$(CURRENT_DIR).so
+release: all includes
 
 test: all $(TEST_OBJS) $(TEST_RESULTS) $(CPPCHECK_RESULTS)
 	@echo ""
@@ -154,7 +157,10 @@ $(TEST_RUNNERS)%.c:: $(TEST_DIRS)%.c
 	$(MKDIR) $(dir $@)
 	ruby $(UNITY_ROOT)/auto/generate_test_runner.rb $< $@
 
-
+dockerbuild: 
+	( \
+		docker run -v .:/app -it stm32_timer:1.0.0; \
+	)
 
 
 clean:
