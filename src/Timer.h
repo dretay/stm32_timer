@@ -8,8 +8,6 @@
 
 #include "gpio.h"
 #include "hal.h"
-#else
-#include "UartLogger.h"
 #endif
 
 #ifdef defined(STM32L051xx)
