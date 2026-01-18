@@ -10,7 +10,7 @@
 #include "hal.h"
 #endif
 
-#ifdef defined(STM32L051xx)
+#if defined(STM32L051xx)
 #include "stm32l0xx_hal.h"
 #elif defined(STM32F103xB)
 #include "stm32f1xx_hal.h"
